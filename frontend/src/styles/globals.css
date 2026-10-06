@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.card {
+  @apply bg-base-800 border border-base-600 rounded-xl p-5;
+}
+
+.badge {
+  @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide;
+}
+.badge-malicious { @apply bg-danger/10 text-danger; }
+.badge-suspicious { @apply bg-warn/10 text-warn; }
+.badge-benign { @apply bg-safe/10 text-safe; }
+.badge-unknown { @apply bg-slate-500/10 text-slate-400; }
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors;
+}
+.btn-primary { @apply bg-accent text-base-950 hover:bg-accent-dim; }
+.btn-secondary { @apply bg-base-700 text-slate-200 hover:bg-base-600 border border-base-600; }

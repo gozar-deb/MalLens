@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: mallens-db
+    environment:
+      - POSTGRES_USER=mallens
+      - POSTGRES_PASSWORD=mallens_pass
+      - POSTGRES_DB=mallens_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mallens"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mallens-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: mallens-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mallens-network
+
+  api:
+    build: ./backend
+    container_name: mallens-api
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://mallens:mallens_pass@db:5432/mallens_db
+      - REDIS_URL=redis://redis:6379/0
+      - UPLOAD_DIR=/app/uploads
+      - DEBUG=true
+      - SECRET_KEY=mallens-secret-key-replace-in-production
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/yara_rules:/app/yara_rules
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mallens-network
+
+  # NOTE: the analysis pipeline is asynchronous (API enqueues a job, a
+  # worker executes it). This service was missing from the original
+  # docker-compose.yml in the source repo -- without it, jobs would sit in
+  # the Redis queue forever and every analysis would stay "pending".
+  worker:
+    build: ./backend
+    container_name: mallens-worker
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://mallens:mallens_pass@db:5432/mallens_db
+      - REDIS_URL=redis://redis:6379/0
+      - UPLOAD_DIR=/app/uploads
+      - SECRET_KEY=mallens-secret-key-replace-in-production
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/yara_rules:/app/yara_rules
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mallens-network
+
+  frontend:
+    build: ./frontend
+    container_name: mallens-frontend
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - mallens-network
+
+networks:
+  mallens-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
